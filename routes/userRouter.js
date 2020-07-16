@@ -6,7 +6,7 @@ const User = require('../models/userModel');
 //since we used json parser we can interact like: req.body.email
 router.post('/register', async (req, res) => {
   try {
-    let { email, password, passwordCheck, displayName } = req.body;
+    let { email, password, passwordCheck, displayName } = req.body; //destructuring
 
     // validate
 
@@ -43,5 +43,46 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+//login:
+//comparing creds entered with those in the db (pass matches the hashed one in the DB) and after that
+//create a jwt => looks like a hash but is an encoded message which can always be decoded
+//basically a json object converted into gibberish but we can always get back the original json object
+//this obj stores some info about the logged in user like the db id
+//we'll later validated this token when we create content for the user
+//we can also put in an expiry time in this jwt
+
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // validate
+    if (!email || !password)
+      return res.status(400).json({ msg: 'Not all fields have been entered.' });
+
+    const user = await User.findOne({ email: email });
+    if (!user)
+      return res
+        .status(400)
+        .json({ msg: 'No account with this email has been registered.' });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials.' });
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        displayName: user.displayName,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//after login and regis we create a middleware for our private routes ie routes which require user to be
+//authenticated
 
 module.exports = router;
