@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const auth = require('../middleware/auth');
+
 const User = require('../models/userModel');
 
 //since we used json parser we can interact like: req.body.email
@@ -84,5 +86,35 @@ router.post('/login', async (req, res) => {
 
 //after login and regis we create a middleware for our private routes ie routes which require user to be
 //authenticated
+
+router.delete('/delete', auth, async (req, res) => {
+  try {
+    const deletedUser = await User.findByIdAndDelete(req.user);
+    res.json(deletedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//an endpoint which gives true or false if the token we give it is vaild or not
+//kinda like auth but auth needs to be applied to other funtions
+// this is not a private route as it will be telling if we're logged in or not:
+
+router.post('/tokenIsValid', async (req, res) => {
+  try {
+    const token = req.header('x-auth-token');
+    if (!token) return res.json(false);
+
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    if (!verified) return res.json(false);
+
+    const user = await User.findById(verified.id);
+    if (!user) return res.json(false);
+
+    return res.json(true);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;
